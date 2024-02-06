@@ -6,46 +6,65 @@
 #include <filesystem>
 #include <string>
 #include <vector>
+#include <bits/stdc++.h>
+#include <chrono>
+
+#define KNNS_LABEL "knns"
+#define DIST_LABEL "dist"
+#define INTEGER NATIVE_UINT64
+#define DOUBLE NATIVE_DOUBLE
+#define DIST_T INTEGER
+#if DIST_T == NATIVE_UINT64
+typedef uint64_t dist_t;
+#elif DIST_T == NATIVE_DOUBLE
+typedef double dist_t;
+#endif
 
 using namespace std;
 using namespace std::filesystem;
+using namespace std::chrono;
 
-typedef pair<int, int> result_t;
+typedef pair<dist_t, int> result_t;
 
-const uint32_t m1  = 0x55555555; //binary: 0101...
-const uint32_t m2  = 0x33333333; //binary: 00110011..
-const uint32_t m4  = 0x0f0f0f0f; //binary:  4 zeros,  4 ones ...
-const uint32_t m8  = 0x00ff00ff; //binary:  8 zeros,  8 ones ...
-const uint32_t m16 = 0x0000ffff; //binary: 16 zeros, 16 ones ...
-								 //
 const vector<string> sizes{"10K", "100K", "1M", "30M", "10M", "100M"};
 
-/* 
- * See wiki page for Hamming weight
- * https://en.wikipedia.org/wiki/Hamming_weight
- */
-int count(float x) {
-	uint32_t n = *(reinterpret_cast<uint32_t *>(&x));
-	n = (n & m1 ) + ((n >>  1) & m1 );
-	n = (n & m2 ) + ((n >>  2) & m2 );
-	n = (n & m4 ) + ((n >>  4) & m4 );
-	n = (n & m8 ) + ((n >>  8) & m8 );
-	n = (n & m16) + ((n >> 16) & m16);
-	return n;
-}
-
-float distance(float *a, float *b, int n) {
+uint64_t distance(uint64_t *a, uint64_t *b, int n) {
 	int dist = 0;
 	for (int i = 0; i < n; i++) {
-		dist += count((*(reinterpret_cast<uint32_t *>(&(a[i])))) ^ (*(reinterpret_cast<uint32_t *>(&(b[i])))));
+		dist += __builtin_popcount(a[i] ^ b[i]);
 	}
 	return dist;
 }
 
-result_t *bruteforce(float *data, hsize_t rows, hsize_t cols, int k, float *query) {
-	priority_queue<pair<float, int>> pq;
-	for (int i = 0; i < rows; i++) {
-		float dist = distance(data + i * cols, query, cols);
+// Float cosine distance
+float cosine_distance(float *a, float *b, int n) {
+	float prod{0.0};
+	float lenA{0.0};
+	float lenB{0.0}; for (int i = 0; i < n; i++) {
+		prod += a[i] * b[i];
+		lenA += a[i] * a[i];
+		lenB += b[i] * b[i];
+	}
+	return 1.0 - prod / (sqrt(lenA) * sqrt(lenB));
+}
+
+double cosine_distance(uint64_t *a, uint64_t *b, int n) {
+	uint64_t prod{0};
+	uint64_t lenA = 0;
+	uint64_t lenB;
+	for (int i = 0; i < n; i++) {
+		prod += __builtin_popcount(a[i] & b[i]);
+		lenA += __builtin_popcount(a[i]);
+		lenB += __builtin_popcount(b[i]);
+	}
+
+	return 1.0 - ((double)prod / (sqrt((double)lenA) * sqrt((double)lenB)));
+}
+
+result_t *bruteforce(uint64_t *data, hsize_t rows, hsize_t cols, int k, uint64_t *query) {
+	priority_queue<result_t> pq;
+	for (uint64_t i = 0; i < rows; i++) {
+		dist_t dist = distance(data + i * cols, query, cols);
 		pq.push({dist, i});
 		if (pq.size() > k) {
 			pq.pop();
@@ -127,26 +146,40 @@ int main(int argc, char *argv[]) {
 
 	assert(cols == query_cols);
 
-	float *data = new float[rows * cols];
-	dataset.read(data, H5::PredType::NATIVE_FLOAT);
-	float *queries = new float[query_rows * query_cols];
-	queryset.read(queries, H5::PredType::NATIVE_FLOAT);
+	auto start = high_resolution_clock::now();
+
+	uint64_t *data = new uint64_t[rows * cols];
+	dataset.read(data, H5::PredType::NATIVE_UINT64);
+	auto stop = high_resolution_clock::now();
+	auto buildtime = duration_cast<microseconds>(stop - start);
+	
+	uint64_t *queries = new uint64_t[query_rows * query_cols];
+	queryset.read(queries, H5::PredType::NATIVE_UINT64);
 
 	cout << "Files read successfully" << endl;
 
-	int knns[query_rows];
-	int dists[query_rows];
+	uint64_t *knns = (uint64_t *)malloc(query_rows * k * sizeof(uint64_t));
+	dist_t *dist = (dist_t *)malloc(query_rows * k * sizeof(dist_t));
+
+	start = high_resolution_clock::now();
 
 	for (int i = 0; i < query_rows; i++) {
 		if (i % 100 == 0) {
 			cout << "Processed " << i << " queries" << endl;
 		}
-		result_t *result = bruteforce(data, rows, cols, k, &queries[i * query_cols]);
+#if DIST_T == NATIVE_UINT64
+		result_t *result = bruteforce(data, rows, cols, k, &(queries[i * query_cols]));
+#elif DIST_T == NATIVE_DOUBLE
+		result_t *result = cosine_bruteforce(data, rows, cols, k, &(queries[i * query_cols]));
+#endif
 		for (int j = 0; j < k; j++) {
-			dists[i * query_cols + j] = result[j].first;
-			knns[i * query_cols + j] = result[j].second + 1;
+			dist[i * k + j] = result[j].first;
+			knns[i * k + j] = result[j].second + 1;
 		}
 	}
+
+	stop = high_resolution_clock::now();
+	auto querytime = duration_cast<microseconds>(stop - start);
 
 	if (!filesystem::exists("results/"))
 		filesystem::create_directory("results/");
@@ -155,24 +188,28 @@ int main(int argc, char *argv[]) {
 	
 	H5::Attribute data_attr = result_file.createAttribute("data", H5::StrType(H5::PredType::C_S1, 256), H5::DataSpace(H5S_SCALAR));
 	data_attr.write(H5::StrType(H5::PredType::C_S1, 256), "hamming");
-/*
-	H5::Attribute size_attr = result_file.createAttribute("size", H5::PredType::NATIVE_INT, H5::DataSpace(H5S_SCALAR));
-	size_attr.write(H5::StrType(H5::PredType::C_S1), string{size}.c_str());
-*/
+
+	H5::Attribute size_attr = result_file.createAttribute("size", H5::StrType(H5::PredType::C_S1, 256), H5::DataSpace(H5S_SCALAR));
+	size_attr.write(H5::StrType(H5::PredType::C_S1, 256), size);
+
 	H5::Attribute algo_attr = result_file.createAttribute("algo", H5::StrType(H5::PredType::C_S1, 256), H5::DataSpace(H5S_SCALAR));
 	algo_attr.write(H5::StrType(H5::PredType::C_S1, 256), "bruteforce");
 
-	H5::Attribute buildtime_attr = result_file.createAttribute("buildtime", H5::PredType::NATIVE_FLOAT, H5::DataSpace(H5S_SCALAR));
-	buildtime_attr.write(H5::PredType::NATIVE_FLOAT, "0.0");
+	H5::Attribute buildtime_attr = result_file.createAttribute("buildtime", H5::PredType::NATIVE_DOUBLE, H5::DataSpace(H5S_SCALAR));
+	buildtime_attr.write(H5::PredType::NATIVE_DOUBLE, to_string(buildtime.count() / 1000000.0));
+	cout << "Build time: " << buildtime.count() / 1000000.0 << endl;
 
-	H5::Attribute querytime_attr = result_file.createAttribute("querytime", H5::PredType::NATIVE_FLOAT, H5::DataSpace(H5S_SCALAR));
-	querytime_attr.write(H5::PredType::NATIVE_FLOAT, "0.0");
+	H5::Attribute querytime_attr = result_file.createAttribute("querytime", H5::PredType::NATIVE_DOUBLE, H5::DataSpace(H5S_SCALAR));
+	querytime_attr.write(H5::PredType::NATIVE_DOUBLE, to_string(querytime.count() / 1000000.0));
+	cout << "Query time: " << querytime.count() / 1000000.0 << endl;
 
 	H5::Attribute params_attr = result_file.createAttribute("params", H5::StrType(H5::PredType::C_S1, 256), H5::DataSpace(H5S_SCALAR));
 	params_attr.write(H5::StrType(H5::PredType::C_S1, 256), to_string(k).c_str());
 
-	hsize_t knn_dims[2] = {query_rows, k};
-	H5::DataSet knn_set = result_file.createDataSet("knn", H5::PredType::NATIVE_INT, H5::DataSpace(2, knn_dims));
-	
-	knn_set.write(knns, H5::PredType::NATIVE_INT);
+	hsize_t knns_dims[2] = {query_rows, (hsize_t)k};
+	hsize_t dist_dims[2] = {query_rows, (hsize_t)k};
+	H5::DataSet knns_set = result_file.createDataSet(KNNS_LABEL, H5::PredType::NATIVE_UINT64, H5::DataSpace(2, knns_dims));
+	H5::DataSet dist_set = result_file.createDataSet(DIST_LABEL, H5::PredType::DIST_T, H5::DataSpace(2, dist_dims));
+	knns_set.write(knns, H5::PredType::NATIVE_UINT64);
+	dist_set.write(dist, H5::PredType::DIST_T);
 }
