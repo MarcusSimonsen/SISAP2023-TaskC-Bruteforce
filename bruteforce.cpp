@@ -11,14 +11,7 @@
 
 #define KNNS_LABEL "knns"
 #define DIST_LABEL "dist"
-#define INTEGER NATIVE_UINT64
-#define DOUBLE NATIVE_DOUBLE
-#define DIST_T INTEGER
-#if DIST_T == NATIVE_UINT64
-typedef uint64_t dist_t;
-#elif DIST_T == NATIVE_DOUBLE
 typedef double dist_t;
-#endif
 
 using namespace std;
 using namespace std::filesystem;
@@ -36,35 +29,26 @@ uint64_t distance(uint64_t *a, uint64_t *b, int n) {
 	return dist;
 }
 
-// Float cosine distance
-float cosine_distance(float *a, float *b, int n) {
-	float prod{0.0};
-	float lenA{0.0};
-	float lenB{0.0}; for (int i = 0; i < n; i++) {
-		prod += a[i] * b[i];
-		lenA += a[i] * a[i];
-		lenB += b[i] * b[i];
-	}
-	return 1.0 - prod / (sqrt(lenA) * sqrt(lenB));
-}
-
 double cosine_distance(uint64_t *a, uint64_t *b, int n) {
-	uint64_t prod{0};
-	uint64_t lenA = 0;
-	uint64_t lenB;
+	uint32_t prod = 0;
+	uint32_t lenA = 0;
+	uint32_t lenB = 0;
 	for (int i = 0; i < n; i++) {
 		prod += __builtin_popcount(a[i] & b[i]);
 		lenA += __builtin_popcount(a[i]);
 		lenB += __builtin_popcount(b[i]);
 	}
 
-	return 1.0 - ((double)prod / (sqrt((double)lenA) * sqrt((double)lenB)));
+	double P = (double)prod;
+	double A = (double)lenA;
+	double B = (double)lenB;
+	return 1.0 - P / (sqrt(A) * sqrt(B));
 }
 
 result_t *bruteforce(uint64_t *data, hsize_t rows, hsize_t cols, int k, uint64_t *query) {
 	priority_queue<result_t> pq;
 	for (uint64_t i = 0; i < rows; i++) {
-		dist_t dist = distance(data + i * cols, query, cols);
+		dist_t dist = cosine_distance(&data[i * cols], query, cols);
 		pq.push({dist, i});
 		if (pq.size() > k) {
 			pq.pop();
@@ -146,13 +130,9 @@ int main(int argc, char *argv[]) {
 
 	assert(cols == query_cols);
 
-	auto start = high_resolution_clock::now();
-
 	uint64_t *data = new uint64_t[rows * cols];
 	dataset.read(data, H5::PredType::NATIVE_UINT64);
-	auto stop = high_resolution_clock::now();
-	auto buildtime = duration_cast<microseconds>(stop - start);
-	
+
 	uint64_t *queries = new uint64_t[query_rows * query_cols];
 	queryset.read(queries, H5::PredType::NATIVE_UINT64);
 
@@ -161,24 +141,20 @@ int main(int argc, char *argv[]) {
 	uint64_t *knns = (uint64_t *)malloc(query_rows * k * sizeof(uint64_t));
 	dist_t *dist = (dist_t *)malloc(query_rows * k * sizeof(dist_t));
 
-	start = high_resolution_clock::now();
+	auto start = high_resolution_clock::now();
 
-	for (int i = 0; i < query_rows; i++) {
+	for (int i = 0; i < /*query_rows*/1; i++) {
 		if (i % 100 == 0) {
 			cout << "Processed " << i << " queries" << endl;
 		}
-#if DIST_T == NATIVE_UINT64
 		result_t *result = bruteforce(data, rows, cols, k, &(queries[i * query_cols]));
-#elif DIST_T == NATIVE_DOUBLE
-		result_t *result = cosine_bruteforce(data, rows, cols, k, &(queries[i * query_cols]));
-#endif
 		for (int j = 0; j < k; j++) {
 			dist[i * k + j] = result[j].first;
 			knns[i * k + j] = result[j].second + 1;
 		}
 	}
 
-	stop = high_resolution_clock::now();
+	auto stop = high_resolution_clock::now();
 	auto querytime = duration_cast<microseconds>(stop - start);
 
 	if (!filesystem::exists("results/"))
@@ -196,8 +172,8 @@ int main(int argc, char *argv[]) {
 	algo_attr.write(H5::StrType(H5::PredType::C_S1, 256), "bruteforce");
 
 	H5::Attribute buildtime_attr = result_file.createAttribute("buildtime", H5::PredType::NATIVE_DOUBLE, H5::DataSpace(H5S_SCALAR));
-	buildtime_attr.write(H5::PredType::NATIVE_DOUBLE, to_string(buildtime.count() / 1000000.0));
-	cout << "Build time: " << buildtime.count() / 1000000.0 << endl;
+	buildtime_attr.write(H5::PredType::NATIVE_DOUBLE, to_string(0.0));
+	cout << "Build time: " << 0.0 << endl;
 
 	H5::Attribute querytime_attr = result_file.createAttribute("querytime", H5::PredType::NATIVE_DOUBLE, H5::DataSpace(H5S_SCALAR));
 	querytime_attr.write(H5::PredType::NATIVE_DOUBLE, to_string(querytime.count() / 1000000.0));
@@ -206,10 +182,10 @@ int main(int argc, char *argv[]) {
 	H5::Attribute params_attr = result_file.createAttribute("params", H5::StrType(H5::PredType::C_S1, 256), H5::DataSpace(H5S_SCALAR));
 	params_attr.write(H5::StrType(H5::PredType::C_S1, 256), to_string(k).c_str());
 
-	hsize_t knns_dims[2] = {query_rows, (hsize_t)k};
-	hsize_t dist_dims[2] = {query_rows, (hsize_t)k};
+	hsize_t knns_dims[2] = {/*query_rows*/1, (hsize_t)k};
+	hsize_t dist_dims[2] = {/*query_rows*/1, (hsize_t)k};
 	H5::DataSet knns_set = result_file.createDataSet(KNNS_LABEL, H5::PredType::NATIVE_UINT64, H5::DataSpace(2, knns_dims));
-	H5::DataSet dist_set = result_file.createDataSet(DIST_LABEL, H5::PredType::DIST_T, H5::DataSpace(2, dist_dims));
+	H5::DataSet dist_set = result_file.createDataSet(DIST_LABEL, H5::PredType::NATIVE_DOUBLE, H5::DataSpace(2, dist_dims));
 	knns_set.write(knns, H5::PredType::NATIVE_UINT64);
-	dist_set.write(dist, H5::PredType::DIST_T);
+	dist_set.write(dist, H5::PredType::NATIVE_DOUBLE);
 }
