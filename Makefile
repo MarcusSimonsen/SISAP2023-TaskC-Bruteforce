@@ -5,7 +5,7 @@ clean:
 	rm -f result_*.png
 
 build:
-	h5c++ bruteforce.cpp -o bruteforce -O2 -mavx2
+	h5c++ bruteforce.cpp -o bruteforce -O2 -march=native
 
 test:
 	make build
