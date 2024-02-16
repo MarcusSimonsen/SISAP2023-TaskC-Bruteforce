@@ -46,6 +46,7 @@ class NHeap {
 			}
 			heap[1] = item;
 			sink(1);
+			free(heap[1]);
 		}
 
 		vector<T*> get_vector() {
