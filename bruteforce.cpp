@@ -87,7 +87,7 @@ double cosine_distance(uint64_t *a, uint64_t *b, int n) {
 result_t *bruteforce(uint64_t *data, hsize_t rows, hsize_t cols, int k, uint64_t *query) {
 	priority_queue<result_t, std::vector<result_t>, std::greater<result_t>> pq;
 	for (int i = 0; i < rows; i++) {
-		dist_t dist = distance(&data[i * cols], query, cols);
+		dist_t dist = distance_simd(&data[i * cols], query, cols);
 		result_t res(dist, i);
 		pq.push(res);
 	}
