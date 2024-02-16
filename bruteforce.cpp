@@ -11,7 +11,7 @@
 
 #define KNNS_LABEL "knns"
 #define DIST_LABEL "dist"
-typedef double dist_t;
+typedef uint64_t dist_t;
 
 using namespace std;
 using namespace std::filesystem;
@@ -22,9 +22,9 @@ typedef pair<dist_t, int> result_t;
 const vector<string> sizes{"10K", "100K", "1M", "30M", "10M", "100M"};
 
 uint64_t distance(uint64_t *a, uint64_t *b, int n) {
-	int dist = 0;
+	uint64_t dist = 0;
 	for (int i = 0; i < n; i++) {
-		dist += __builtin_popcount(a[i] ^ b[i]);
+		dist += __builtin_popcountll(a[i] ^ b[i]);
 	}
 	return dist;
 }
@@ -34,9 +34,9 @@ double cosine_distance(uint64_t *a, uint64_t *b, int n) {
 	uint32_t lenA = 0;
 	uint32_t lenB = 0;
 	for (int i = 0; i < n; i++) {
-		prod += __builtin_popcount(a[i] & b[i]);
-		lenA += __builtin_popcount(a[i]);
-		lenB += __builtin_popcount(b[i]);
+		prod += __builtin_popcountll(a[i] & b[i]);
+		lenA += __builtin_popcountll(a[i]);
+		lenB += __builtin_popcountll(b[i]);
 	}
 
 	double P = (double)prod;
@@ -46,16 +46,14 @@ double cosine_distance(uint64_t *a, uint64_t *b, int n) {
 }
 
 result_t *bruteforce(uint64_t *data, hsize_t rows, hsize_t cols, int k, uint64_t *query) {
-	priority_queue<result_t> pq;
-	for (uint64_t i = 0; i < rows; i++) {
-		dist_t dist = cosine_distance(&data[i * cols], query, cols);
-		pq.push({dist, i});
-		if (pq.size() > k) {
-			pq.pop();
-		}
+	priority_queue<result_t, std::vector<result_t>, std::greater<result_t>> pq;
+	for (int i = 0; i < rows; i++) {
+		dist_t dist = distance(&data[i * cols], query, cols);
+		result_t res(dist, i);
+		pq.push(res);
 	}
 
-	result_t *result = new result_t[k];
+	result_t *result = (result_t*)malloc(sizeof(result_t) * k);
 	for (int i = k - 1; i >= 0; i--) {
 		result[i] = pq.top();
 		pq.pop();
@@ -143,7 +141,7 @@ int main(int argc, char *argv[]) {
 
 	auto start = high_resolution_clock::now();
 
-	for (int i = 0; i < /*query_rows*/1; i++) {
+	for (int i = 0; i < query_rows; i++) {
 		if (i % 100 == 0) {
 			cout << "Processed " << i << " queries" << endl;
 		}
@@ -152,6 +150,7 @@ int main(int argc, char *argv[]) {
 			dist[i * k + j] = result[j].first;
 			knns[i * k + j] = result[j].second + 1;
 		}
+		free(result);
 	}
 
 	auto stop = high_resolution_clock::now();
@@ -182,10 +181,10 @@ int main(int argc, char *argv[]) {
 	H5::Attribute params_attr = result_file.createAttribute("params", H5::StrType(H5::PredType::C_S1, 256), H5::DataSpace(H5S_SCALAR));
 	params_attr.write(H5::StrType(H5::PredType::C_S1, 256), to_string(k).c_str());
 
-	hsize_t knns_dims[2] = {/*query_rows*/1, (hsize_t)k};
-	hsize_t dist_dims[2] = {/*query_rows*/1, (hsize_t)k};
+	hsize_t knns_dims[2] = {query_rows, (hsize_t)k};
+	hsize_t dist_dims[2] = {query_rows, (hsize_t)k};
 	H5::DataSet knns_set = result_file.createDataSet(KNNS_LABEL, H5::PredType::NATIVE_UINT64, H5::DataSpace(2, knns_dims));
-	H5::DataSet dist_set = result_file.createDataSet(DIST_LABEL, H5::PredType::NATIVE_DOUBLE, H5::DataSpace(2, dist_dims));
+	H5::DataSet dist_set = result_file.createDataSet(DIST_LABEL, H5::PredType::NATIVE_UINT64, H5::DataSpace(2, dist_dims));
 	knns_set.write(knns, H5::PredType::NATIVE_UINT64);
-	dist_set.write(dist, H5::PredType::NATIVE_DOUBLE);
+	dist_set.write(dist, H5::PredType::NATIVE_UINT64);
 }
