@@ -8,6 +8,7 @@
 #include <vector>
 #include <bits/stdc++.h>
 #include <chrono>
+#include <immintrin.h>
 
 #define KNNS_LABEL "knns"
 #define DIST_LABEL "dist"
@@ -26,6 +27,51 @@ uint64_t distance(uint64_t *a, uint64_t *b, int n) {
 	for (int i = 0; i < n; i++) {
 		dist += __builtin_popcountll(a[i] ^ b[i]);
 	}
+	return dist;
+}
+
+uint64_t sumOfCounts(__m256i vec) {
+	uint64_t dists[4];
+	_mm256_store_si256((__m256i*)dists, vec);
+	uint64_t sum{0};
+	for (int i = 0; i < 4; i++) {
+		sum += __builtin_popcountll(dists[i]);
+	}
+	return sum;
+}
+uint64_t distance_simd(uint64_t *a, uint64_t *b, int n) {
+	// Load data into registers
+	__m256i a1 = _mm256_load_si256((__m256i *)&(a[4 * 0]));
+	__m256i a2 = _mm256_load_si256((__m256i *)&(a[4 * 1]));
+	__m256i a3 = _mm256_load_si256((__m256i *)&(a[4 * 2]));
+	__m256i a4 = _mm256_load_si256((__m256i *)&(a[4 * 3]));
+
+	__m256i b1 = _mm256_load_si256((__m256i *)&(b[4 * 0]));
+	__m256i b2 = _mm256_load_si256((__m256i *)&(b[4 * 1]));
+	__m256i b3 = _mm256_load_si256((__m256i *)&(b[4 * 2]));
+	__m256i b4 = _mm256_load_si256((__m256i *)&(b[4 * 3]));
+
+	// a XOR b
+	__m256i d1 = _mm256_xor_si256(a1, b1);
+	__m256i d2 = _mm256_xor_si256(a2, b2);
+	__m256i d3 = _mm256_xor_si256(a3, b3);
+	__m256i d4 = _mm256_xor_si256(a4, b4);
+
+	/*
+	// popcount
+	__m256i c1 = _mm256_popcnt_epi64(d1);
+	__m256i c2 = _mm256_popcnt_epi64(d2);
+	__m256i c3 = _mm256_popcnt_epi64(d3);
+	__m256i c4 = _mm256_popcnt_epi64(d4);
+*/
+
+	// Sum popcounts
+	uint64_t dist{0};
+	dist += sumOfCounts(d1);
+	dist += sumOfCounts(d2);
+	dist += sumOfCounts(d3);
+	dist += sumOfCounts(d4);
+
 	return dist;
 }
 

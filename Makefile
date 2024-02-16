@@ -5,7 +5,7 @@ clean:
 	rm -f result_*.png
 
 test:
-	h5c++ bruteforce.cpp -o bruteforce -O2
+	h5c++ bruteforce.cpp -o bruteforce -O2 -mavx2
 	./bruteforce -df ../datasets/laion2B-en-hammingv2-n=100K.h5 -qf ../datasets/public-queries-10k-hammingv2.h5 -k 100 -s 100K
 
 py:
