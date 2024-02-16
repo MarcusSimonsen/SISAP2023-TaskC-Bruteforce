@@ -132,8 +132,10 @@ int main(int argc, char *argv[]) {
 
 	cout << "Files read successfully" << endl;
 
-	uint64_t *knns = (uint64_t *)malloc(query_rows * k * sizeof(uint64_t));
-	dist_t *dist = (dist_t *)malloc(query_rows * k * sizeof(dist_t));
+	uint64_t *knns = (uint64_t*)malloc(query_rows * k * sizeof(uint64_t));
+	dist_t *dist = (dist_t*)malloc(query_rows * k * sizeof(dist_t));
+
+	vector<result_t*> *results = (vector<result_t*>*)malloc(query_rows * sizeof(vector<result_t*>));
 
 	auto start = high_resolution_clock::now();
 
@@ -141,7 +143,15 @@ int main(int argc, char *argv[]) {
 		if (i % 100 == 0) {
 			cout << "Processed " << i << " queries" << endl;
 		}
-		vector<result_t*> vec = bruteforce(data, rows, cols, k, &(queries[i * query_cols]));
+		results[i] = bruteforce(data, rows, cols, k, &(queries[i * query_cols]));
+	}
+
+	auto stop = high_resolution_clock::now();
+	auto querytime = duration_cast<microseconds>(stop - start);
+
+	// Extract data
+	for (int i = 0; i < query_rows; i++) {
+		vector<result_t*> vec = results[i];
 		for (int j = 0; j < k; j++) {
 			result_t *res = vec.back();
 			vec.pop_back();
@@ -150,9 +160,7 @@ int main(int argc, char *argv[]) {
 			free(res);
 		}
 	}
-
-	auto stop = high_resolution_clock::now();
-	auto querytime = duration_cast<microseconds>(stop - start);
+	free(results);
 
 	if (!filesystem::exists("results/"))
 		filesystem::create_directory("results/");
@@ -185,4 +193,7 @@ int main(int argc, char *argv[]) {
 	H5::DataSet dist_set = result_file.createDataSet(DIST_LABEL, H5::PredType::NATIVE_UINT64, H5::DataSpace(2, dist_dims));
 	knns_set.write(knns, H5::PredType::NATIVE_UINT64);
 	dist_set.write(dist, H5::PredType::NATIVE_UINT64);
+
+	free(knns);
+	free(dist);
 }
