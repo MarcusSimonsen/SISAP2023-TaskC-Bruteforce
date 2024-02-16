@@ -4,20 +4,22 @@ clean:
 	rm -rf results/
 	rm -f result_*.png
 
-clean-py:
-	rm -f results/results.csv
-	rm -f result_*.png
-
-test-cpp:
-	h5c++ bruteforce.cpp -o bruteforce
-	./bruteforce -df ../datasets/laion2B-en-hammingv2-n=100K.h5 -qf ../datasets/public-queries-10k-hammingv2.h5 -k 100 -s 100K
-
-test-py:
-	python3 eval/eval.py results/results.csv
-	python3 eval/plot.py results/results.csv
-
 test:
-	h5c++ bruteforce.cpp -o bruteforce
+	h5c++ bruteforce.cpp -o bruteforce -O2
 	./bruteforce -df ../datasets/laion2B-en-hammingv2-n=100K.h5 -qf ../datasets/public-queries-10k-hammingv2.h5 -k 100 -s 100K
+
+py:
 	python3 eval/eval.py results/results.csv
 	python3 eval/plot.py results/results.csv
+
+run-10M:
+	h5c++ bruteforce.cpp -o bruteforce -O2
+	./bruteforce -df ../datasets/laion2B-en-hammingv2-n=10M.h5 -qf ../datasets/public-queries-10k-hammingv2.h5 -k 100 -s 10M
+
+run-30M:
+	h5c++ bruteforce.cpp -o bruteforce -O2
+	./bruteforce -df ../datasets/laion2B-en-hammingv2-n=30M.h5 -qf ../datasets/public-queries-10k-hammingv2.h5 -k 100 -s 30M
+
+run-100M:
+	h5c++ bruteforce.cpp -o bruteforce -O2
+	./bruteforce -df ../datasets/laion2B-en-hammingv2-n=100M.h5 -qf ../datasets/public-queries-10k-hammingv2.h5 -k 100 -s 100M
