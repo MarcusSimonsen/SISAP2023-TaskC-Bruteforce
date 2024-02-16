@@ -41,7 +41,7 @@ uint64_t sumOfCounts(__m256i vec) {
 }
 uint64_t distance_simd(uint64_t *a, uint64_t *b, int n) {
 	// Load data into vectors
-	__m256i a1 = _mm256_loadu_si256((__m256i *)a);
+	__m256i a1 = _mm256_loadu_si256((__m256i *)&(a[4 * 0]));
 	__m256i a2 = _mm256_loadu_si256((__m256i *)&(a[4 * 1]));
 	__m256i a3 = _mm256_loadu_si256((__m256i *)&(a[4 * 2]));
 	__m256i a4 = _mm256_loadu_si256((__m256i *)&(a[4 * 3]));
