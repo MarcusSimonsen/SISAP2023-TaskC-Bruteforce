@@ -8,6 +8,7 @@
 #include <vector>
 #include <bits/stdc++.h>
 #include <chrono>
+#include "nheap.cpp"
 
 #define KNNS_LABEL "knns"
 #define DIST_LABEL "dist"
@@ -45,21 +46,16 @@ double cosine_distance(uint64_t *a, uint64_t *b, int n) {
 	return 1.0 - P / (sqrt(A) * sqrt(B));
 }
 
-result_t *bruteforce(uint64_t *data, hsize_t rows, hsize_t cols, int k, uint64_t *query) {
-	priority_queue<result_t, std::vector<result_t>, std::greater<result_t>> pq;
+vector<result_t*> bruteforce(uint64_t *data, hsize_t rows, hsize_t cols, int k, uint64_t *query) {
+	NHeap<result_t> heap{k};
 	for (int i = 0; i < rows; i++) {
 		dist_t dist = distance(&data[i * cols], query, cols);
-		result_t res(dist, i);
-		pq.push(res);
+		result_t *res = (result_t *)malloc(sizeof(result_t));
+		*res = std::make_pair(dist, i);
+		heap.poppush(res);
 	}
 
-	result_t *result = (result_t*)malloc(sizeof(result_t) * k);
-	for (int i = k - 1; i >= 0; i--) {
-		result[i] = pq.top();
-		pq.pop();
-	}
-
-	return result;
+	return heap.get_vector();
 }
 
 int main(int argc, char *argv[]) {
@@ -145,12 +141,14 @@ int main(int argc, char *argv[]) {
 		if (i % 100 == 0) {
 			cout << "Processed " << i << " queries" << endl;
 		}
-		result_t *result = bruteforce(data, rows, cols, k, &(queries[i * query_cols]));
+		vector<result_t*> vec = bruteforce(data, rows, cols, k, &(queries[i * query_cols]));
 		for (int j = 0; j < k; j++) {
-			dist[i * k + j] = result[j].first;
-			knns[i * k + j] = result[j].second + 1;
+			result_t *res = vec.back();
+			vec.pop_back();
+			dist[i * k + j] = (*res).first;
+			knns[i * k + j] = (*res).second + 1;
+			free(res);
 		}
-		free(result);
 	}
 
 	auto stop = high_resolution_clock::now();
