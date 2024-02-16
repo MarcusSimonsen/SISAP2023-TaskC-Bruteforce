@@ -7,4 +7,4 @@
 | hamming - uint16 (ui16)    | 100       | 10M  | 873.185 |
 | hamming - ui64, no pop(np) | 100       | 10M  | 313.141 |
 | hamming - ui64,O2,np       | 10000     | 100K | 93.1629 |
-| hamming - ui64,O2,np, simd | 10000     | 100K | 45.6273 |
+| hamming - ui64,O2,np, simd | 10000     | 100K | 54.1205 |
