@@ -34,9 +34,10 @@ uint64_t sumOfCounts(__m256i vec) {
 	uint64_t dists[4];
 	_mm256_store_si256((__m256i*)dists, vec);
 	uint64_t sum{0};
-	for (int i = 0; i < 4; i++) {
-		sum += __builtin_popcountll(dists[i]);
-	}
+	sum += __builtin_popcountll(dists[0]);
+	sum += __builtin_popcountll(dists[1]);
+	sum += __builtin_popcountll(dists[2]);
+	sum += __builtin_popcountll(dists[3]);
 	return sum;
 }
 uint64_t distance_simd(uint64_t *a, uint64_t *b, int n) {
