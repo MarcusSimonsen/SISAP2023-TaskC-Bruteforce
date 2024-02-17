@@ -9,6 +9,7 @@
 #include <bits/stdc++.h>
 #include <chrono>
 #include "nheap.cpp"
+#include <immintrin.h>
 
 #define KNNS_LABEL "knns"
 #define DIST_LABEL "dist"
@@ -27,6 +28,44 @@ uint64_t distance(uint64_t *a, uint64_t *b, int n) {
 	for (int i = 0; i < n; i++) {
 		dist += __builtin_popcountll(a[i] ^ b[i]);
 	}
+	return dist;
+}
+
+uint64_t sumOfCounts(__m256i vec) {
+	uint64_t dists[4];
+	_mm256_store_si256((__m256i*)dists, vec);
+	uint64_t sum{0};
+	sum += __builtin_popcountll(dists[0]);
+	sum += __builtin_popcountll(dists[1]);
+	sum += __builtin_popcountll(dists[2]);
+	sum += __builtin_popcountll(dists[3]);
+	return sum;
+}
+uint64_t distance_simd(uint64_t *a, uint64_t *b, int n) {
+	// Load data into vectors
+	__m256i a1 = _mm256_loadu_si256((__m256i *)&(a[4 * 0]));
+	__m256i a2 = _mm256_loadu_si256((__m256i *)&(a[4 * 1]));
+	__m256i a3 = _mm256_loadu_si256((__m256i *)&(a[4 * 2]));
+	__m256i a4 = _mm256_loadu_si256((__m256i *)&(a[4 * 3]));
+
+	__m256i b1 = _mm256_loadu_si256((__m256i *)&(b[4 * 0]));
+	__m256i b2 = _mm256_loadu_si256((__m256i *)&(b[4 * 1]));
+	__m256i b3 = _mm256_loadu_si256((__m256i *)&(b[4 * 2]));
+	__m256i b4 = _mm256_loadu_si256((__m256i *)&(b[4 * 3]));
+
+	// a XOR b
+	__m256i d1 = _mm256_xor_si256(a1, b1);
+	__m256i d2 = _mm256_xor_si256(a2, b2);
+	__m256i d3 = _mm256_xor_si256(a3, b3);
+	__m256i d4 = _mm256_xor_si256(a4, b4);
+
+	// Sum popcounts
+	uint64_t dist{0};
+	dist += sumOfCounts(d1);
+	dist += sumOfCounts(d2);
+	dist += sumOfCounts(d3);
+	dist += sumOfCounts(d4);
+
 	return dist;
 }
 
@@ -49,7 +88,7 @@ double cosine_distance(uint64_t *a, uint64_t *b, int n) {
 NHeap<result_t> bruteforce(uint64_t *data, hsize_t rows, hsize_t cols, int k, uint64_t *query) {
 	NHeap<result_t> heap{k};
 	for (int i = 0; i < rows; i++) {
-		dist_t dist = distance(&data[i * cols], query, cols);
+		dist_t dist = distance_simd(&data[i * cols], query, cols);
 		result_t res{std::make_pair(dist, i)};
 		heap.poppush(res);
 	}
