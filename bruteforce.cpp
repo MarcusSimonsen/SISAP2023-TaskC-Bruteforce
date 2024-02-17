@@ -8,6 +8,7 @@
 #include <vector>
 #include <bits/stdc++.h>
 #include <chrono>
+#include "nheap.cpp"
 #include <immintrin.h>
 
 #define KNNS_LABEL "knns"
@@ -84,21 +85,15 @@ double cosine_distance(uint64_t *a, uint64_t *b, int n) {
 	return 1.0 - P / (sqrt(A) * sqrt(B));
 }
 
-result_t *bruteforce(uint64_t *data, hsize_t rows, hsize_t cols, int k, uint64_t *query) {
-	priority_queue<result_t, std::vector<result_t>, std::greater<result_t>> pq;
+NHeap<result_t> bruteforce(uint64_t *data, hsize_t rows, hsize_t cols, int k, uint64_t *query) {
+	NHeap<result_t> heap{k};
 	for (int i = 0; i < rows; i++) {
 		dist_t dist = distance_simd(&data[i * cols], query, cols);
-		result_t res(dist, i);
-		pq.push(res);
+		result_t res{std::make_pair(dist, i)};
+		heap.poppush(res);
 	}
 
-	result_t *result = (result_t*)malloc(sizeof(result_t) * k);
-	for (int i = k - 1; i >= 0; i--) {
-		result[i] = pq.top();
-		pq.pop();
-	}
-
-	return result;
+	return heap;
 }
 
 int main(int argc, char *argv[]) {
@@ -175,8 +170,10 @@ int main(int argc, char *argv[]) {
 
 	cout << "Files read successfully" << endl;
 
-	uint64_t *knns = (uint64_t *)malloc(query_rows * k * sizeof(uint64_t));
-	dist_t *dist = (dist_t *)malloc(query_rows * k * sizeof(dist_t));
+	uint64_t *knns = (uint64_t*)malloc(query_rows * k * sizeof(uint64_t));
+	dist_t *dist = (dist_t*)malloc(query_rows * k * sizeof(dist_t));
+
+	NHeap<result_t> *results = (NHeap<result_t>*)malloc(query_rows * sizeof(NHeap<result_t>));
 
 	auto start = high_resolution_clock::now();
 
@@ -184,16 +181,22 @@ int main(int argc, char *argv[]) {
 		if (i % 100 == 0) {
 			cout << "Processed " << i << " queries" << endl;
 		}
-		result_t *result = bruteforce(data, rows, cols, k, &(queries[i * query_cols]));
-		for (int j = 0; j < k; j++) {
-			dist[i * k + j] = result[j].first;
-			knns[i * k + j] = result[j].second + 1;
-		}
-		free(result);
+		results[i] = bruteforce(data, rows, cols, k, &(queries[i * query_cols]));
 	}
 
 	auto stop = high_resolution_clock::now();
 	auto querytime = duration_cast<microseconds>(stop - start);
+
+	// Extract data
+	for (int i = 0; i < query_rows; i++) {
+		vector<result_t*> vec = results[i].get_vector();
+		for (int j = 0; j < k; j++) {
+			result_t *res = vec.back();
+			vec.pop_back();
+			dist[i * k + j] = (*res).first;
+			knns[i * k + j] = (*res).second + 1;
+		}
+	}
 
 	if (!filesystem::exists("results/"))
 		filesystem::create_directory("results/");
@@ -226,4 +229,7 @@ int main(int argc, char *argv[]) {
 	H5::DataSet dist_set = result_file.createDataSet(DIST_LABEL, H5::PredType::NATIVE_UINT64, H5::DataSpace(2, dist_dims));
 	knns_set.write(knns, H5::PredType::NATIVE_UINT64);
 	dist_set.write(dist, H5::PredType::NATIVE_UINT64);
+
+	free(knns);
+	free(dist);
 }
