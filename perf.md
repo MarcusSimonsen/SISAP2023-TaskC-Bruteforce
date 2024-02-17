@@ -8,4 +8,4 @@
 | hamming (no pop)                | 100       | 10M  | 313.141 |
 | hamming - O2                    | 10000     | 100K | 94.1264 |
 | hamming - nheap(nh),O2          | 10000     | 100K | 70.2554 |
-| hamming - write after(wa),nh,O2 | 10000     | 100K | 66.1369 |
+| hamming - write after(wa),nh,O2 | 10000     | 100K | 59.4627 |
