@@ -229,4 +229,5 @@ int main(int argc, char *argv[]) {
 
 	free(knns);
 	free(dist);
+	free(results);
 }
