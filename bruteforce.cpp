@@ -86,7 +86,7 @@ double cosine_distance(uint64_t *a, uint64_t *b, int n) {
 }
 
 NHeap<result_t> bruteforce(uint64_t *data, hsize_t rows, hsize_t cols, int k, uint64_t *query) {
-	NHeap<result_t> heap{k};
+	NHeap<result_t> heap{(size_t)k};
 	for (int i = 0; i < rows; i++) {
 		dist_t dist = distance_simd(&data[i * cols], query, cols);
 		result_t res{std::make_pair(dist, i)};
