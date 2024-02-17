@@ -46,16 +46,15 @@ double cosine_distance(uint64_t *a, uint64_t *b, int n) {
 	return 1.0 - P / (sqrt(A) * sqrt(B));
 }
 
-vector<result_t*> bruteforce(uint64_t *data, hsize_t rows, hsize_t cols, int k, uint64_t *query) {
+NHeap<result_t> bruteforce(uint64_t *data, hsize_t rows, hsize_t cols, int k, uint64_t *query) {
 	NHeap<result_t> heap{k};
 	for (int i = 0; i < rows; i++) {
 		dist_t dist = distance(&data[i * cols], query, cols);
-		result_t *res = (result_t *)malloc(sizeof(result_t));
-		*res = std::make_pair(dist, i);
+		result_t res{std::make_pair(dist, i)};
 		heap.poppush(res);
 	}
 
-	return heap.get_vector();
+	return heap;
 }
 
 int main(int argc, char *argv[]) {
@@ -135,7 +134,7 @@ int main(int argc, char *argv[]) {
 	uint64_t *knns = (uint64_t*)malloc(query_rows * k * sizeof(uint64_t));
 	dist_t *dist = (dist_t*)malloc(query_rows * k * sizeof(dist_t));
 
-	vector<result_t*> *results = (vector<result_t*>*)malloc(query_rows * sizeof(vector<result_t*>));
+	NHeap<result_t> *results = (NHeap<result_t>*)malloc(query_rows * sizeof(NHeap<result_t>));
 
 	auto start = high_resolution_clock::now();
 
@@ -151,16 +150,14 @@ int main(int argc, char *argv[]) {
 
 	// Extract data
 	for (int i = 0; i < query_rows; i++) {
-		vector<result_t*> vec = results[i];
+		vector<result_t*> vec = results[i].get_vector();
 		for (int j = 0; j < k; j++) {
 			result_t *res = vec.back();
 			vec.pop_back();
 			dist[i * k + j] = (*res).first;
 			knns[i * k + j] = (*res).second + 1;
-			free(res);
 		}
 	}
-	free(results);
 
 	if (!filesystem::exists("results/"))
 		filesystem::create_directory("results/");

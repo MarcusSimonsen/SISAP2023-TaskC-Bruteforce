@@ -39,14 +39,16 @@ class NHeap {
 			}
 		}
 
-		void poppush(T *item) {
+		void poppush(T item) {
 			if (heap.size() < N+2) {
-				heap.push_back(item);
+				T *place = (T*)malloc(sizeof(T));
+				*place = item;
+				heap.push_back(place);
+				swim(heap.size());
 				return;
 			}
-			heap[1] = item;
+			*heap[1] = item;
 			sink(1);
-			free(heap[1]);
 		}
 
 		vector<T*> get_vector() {
