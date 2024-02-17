@@ -178,9 +178,6 @@ int main(int argc, char *argv[]) {
 	auto start = high_resolution_clock::now();
 
 	for (int i = 0; i < query_rows; i++) {
-		if (i % 100 == 0) {
-			cout << "Processed " << i << " queries" << endl;
-		}
 		results[i] = bruteforce(data, rows, cols, k, &(queries[i * query_cols]));
 	}
 
