@@ -8,12 +8,12 @@ class NHeap {
 		size_t N;
 	public:
 		NHeap(size_t n) {
-			N = n;
+			N = n+2;
 			heap.push_back(nullptr);
 		}
 
 		bool less(int i, int j) {
-			return heap[i] < heap[j];
+			return *heap[i] < *heap[j];
 		}
 
 		void exch(int i, int j) {
@@ -23,10 +23,10 @@ class NHeap {
 		}
 		
 		void sink(int k) {
-			while (2*k <= N) {
+			while (2*k < N) {
 				int j = 2*k;
-				if (j < N && less(j, j+1)) j++;
-				if (!less(k, j)) break;
+				if (less(j, j+1)) j++;
+				if (less(j, k)) break;
 				exch(k, j);
 				k = j;
 			}
@@ -40,11 +40,11 @@ class NHeap {
 		}
 
 		void poppush(T item) {
-			if (heap.size() < N+2) {
+			if (heap.size() < N) {
 				T *place = (T*)malloc(sizeof(T));
 				*place = item;
 				heap.push_back(place);
-				swim(heap.size());
+				swim(heap.size()-1);
 				return;
 			}
 			*heap[1] = item;
