@@ -9,7 +9,7 @@ build:
 
 test:
 	make build
-	./bruteforce -df ../datasets/laion2B-en-hammingv2-n=100K.h5 -qf ../datasets/public-queries-10k-hammingv2.h5 -k 100 -s 100K
+	./bruteforce -df ../datasets/laion2B-en-hammingv2-n=100K.h5 -qf ../datasets/public-queries-10k-hammingv2.h5 -k 10 -s 100K
 
 py:
 	python3 eval/eval.py results/results.csv
@@ -17,12 +17,12 @@ py:
 
 run-10M:
 	make build
-	./bruteforce -df ../datasets/laion2B-en-hammingv2-n=10M.h5 -qf ../datasets/public-queries-10k-hammingv2.h5 -k 100 -s 10M
+	./bruteforce -df ../datasets/laion2B-en-hammingv2-n=10M.h5 -qf ../datasets/public-queries-10k-hammingv2.h5 -k 10 -s 10M
 
 run-30M:
 	make build
-	./bruteforce -df ../datasets/laion2B-en-hammingv2-n=30M.h5 -qf ../datasets/public-queries-10k-hammingv2.h5 -k 100 -s 30M
+	./bruteforce -df ../datasets/laion2B-en-hammingv2-n=30M.h5 -qf ../datasets/public-queries-10k-hammingv2.h5 -k 10 -s 30M
 
 run-100M:
 	make build
-	./bruteforce -df ../datasets/laion2B-en-hammingv2-n=100M.h5 -qf ../datasets/public-queries-10k-hammingv2.h5 -k 100 -s 100M
+	./bruteforce -df ../datasets/laion2B-en-hammingv2-n=100M.h5 -qf ../datasets/public-queries-10k-hammingv2.h5 -k 10 -s 100M
